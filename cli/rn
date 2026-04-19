@@ -161,6 +161,25 @@ def cmd_forward(args) -> None:
     print(f"adb forward tcp:{PORT} -> device tcp:{PORT}")
 
 
+def cmd_ip(args) -> None:
+    """Print WiFi IP of the glasses so you can reach the HTTP server from a phone."""
+    r = subprocess.run(
+        ["adb", "shell", "ip", "-f", "inet", "addr", "show"],
+        check=True, capture_output=True, text=True,
+    )
+    ips = []
+    for line in r.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("inet ") and "127.0.0.1" not in line:
+            ip = line.split()[1].split("/")[0]
+            ips.append(ip)
+    if not ips:
+        print("no non-loopback IPv4 addresses found. Is the glasses on WiFi?", file=sys.stderr)
+        sys.exit(1)
+    for ip in ips:
+        print(f"http://{ip}:{PORT}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="rn", description="Control RayNeo X3 browser/input via adb")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -216,6 +235,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("forward", help="set up adb port forward for HTTP control")
     s.set_defaults(func=cmd_forward)
+
+    s = sub.add_parser("ip", help="print WiFi URL for reaching the control server from phone/LAN")
+    s.set_defaults(func=cmd_ip)
 
     return p
 

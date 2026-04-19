@@ -19,10 +19,11 @@ class ControlServer(
     private val webView: WebView,
     private val urlBar: EditText,
     port: Int = 7317
-) : NanoHTTPD("127.0.0.1", port) {
+) : NanoHTTPD("0.0.0.0", port) {
 
     override fun serve(session: IHTTPSession): Response {
         return when (session.uri) {
+            "/", "/index.html" -> serveControlHtml()
             "/url" -> handleUrl(session)
             "/js" -> handleJs(session)
             "/dom" -> handleDom()
@@ -34,6 +35,12 @@ class ControlServer(
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
     }
+
+    private fun serveControlHtml(): Response {
+        val html = activity.resources.openRawResource(R.raw.control).bufferedReader().use { it.readText() }
+        return newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
+    }
+
 
     private fun handleUrl(session: IHTTPSession): Response {
         val url = when (session.method) {

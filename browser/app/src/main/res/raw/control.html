@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RayNeo">
+<title>RayNeo Remote</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#000; color:#eee; padding:16px; }
+  h1 { margin:0 0 8px; font-size:18px; color:#9cf; }
+  .muted { color:#777; font-size:12px; margin-bottom:16px; }
+  input, textarea { width:100%; padding:14px; font-size:16px; background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:8px; margin-bottom:8px; }
+  button { width:100%; padding:16px; font-size:16px; background:#27c; color:white; border:none; border-radius:8px; margin-bottom:8px; font-weight:600; }
+  button.ghost { background:#222; color:#9cf; }
+  .row { display:flex; gap:8px; }
+  .row button { flex:1; }
+  .section { margin-top:16px; padding-top:16px; border-top:1px solid #222; }
+  #status { padding:8px; font-size:12px; color:#6c6; min-height:1.2em; }
+  .preset { margin-bottom:6px; }
+</style>
+</head>
+<body>
+  <h1>RayNeo Remote</h1>
+  <div class="muted">Connected to glasses control server</div>
+
+  <input id="url" type="url" placeholder="URL or search" autocapitalize="off" autocorrect="off">
+  <button onclick="nav()">Open</button>
+
+  <div class="row">
+    <button class="ghost" onclick="back()">← Back</button>
+    <button class="ghost" onclick="fwd()">Forward →</button>
+  </div>
+
+  <div class="section">
+    <input id="typebox" type="text" placeholder="Text to set on focused field">
+    <button onclick="typeText()">Set text on focused input</button>
+    <div class="row">
+      <button class="ghost" onclick="key('Tab')">Tab</button>
+      <button class="ghost" onclick="key('Enter')">Enter</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="muted">Presets</div>
+    <button class="preset ghost" onclick="go('https://google.com')">Google</button>
+    <button class="preset ghost" onclick="go('https://youtube.com')">YouTube</button>
+    <button class="preset ghost" onclick="go('https://www.corebalancetraining.com')">Core Balance Training</button>
+  </div>
+
+  <div id="status"></div>
+
+<script>
+const base = location.origin;
+function setStatus(s) { document.getElementById('status').textContent = s; }
+
+async function postJson(path, body) {
+  try {
+    const r = await fetch(base + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    setStatus(path + ' -> ' + r.status);
+    return r;
+  } catch (e) { setStatus('error: ' + e); }
+}
+
+async function postRaw(path, body) {
+  try {
+    const r = await fetch(base + path, { method: 'POST', body });
+    const t = await r.text();
+    setStatus(path + ' -> ' + t);
+    return t;
+  } catch (e) { setStatus('error: ' + e); }
+}
+
+async function get(path) {
+  try {
+    const r = await fetch(base + path);
+    setStatus(path + ' -> ' + r.status);
+    return r;
+  } catch (e) { setStatus('error: ' + e); }
+}
+
+function nav() {
+  let u = document.getElementById('url').value.trim();
+  if (!u) return;
+  if (!/^https?:/.test(u)) {
+    u = (u.includes('.') && !u.includes(' ')) ? 'https://' + u : 'https://www.google.com/search?q=' + encodeURIComponent(u);
+  }
+  go(u);
+}
+
+function go(u) {
+  document.getElementById('url').value = u;
+  postJson('/url', { url: u });
+}
+
+function back() { get('/back'); }
+function fwd()  { get('/forward'); }
+
+function typeText() {
+  const t = document.getElementById('typebox').value;
+  if (!t) return;
+  const js = '(function(){var el=document.activeElement;if(el&&"value" in el){el.value='+JSON.stringify(t)+';el.dispatchEvent(new Event("input",{bubbles:true}));return "typed";}return "no-focused-input";})()';
+  postRaw('/js', js);
+}
+
+function key(k) {
+  const js = '(function(){var el=document.activeElement||document.body;el.dispatchEvent(new KeyboardEvent("keydown",{key:"'+k+'",bubbles:true}));return "sent";})()';
+  postRaw('/js', js);
+}
+
+document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') nav(); });
+</script>
+</body>
+</html>
