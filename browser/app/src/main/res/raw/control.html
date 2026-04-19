@@ -31,7 +31,15 @@
 
   <div class="row">
     <button class="ghost" onclick="back()">← Back</button>
+    <button class="ghost" onclick="refresh()">↻ Refresh</button>
     <button class="ghost" onclick="fwd()">Forward →</button>
+  </div>
+
+  <div class="section">
+    <div class="muted">Video</div>
+    <button onclick="tapVideo()">▶ Play / Pause (first video on page)</button>
+    <input id="selector" type="text" placeholder="CSS selector (optional)">
+    <button class="ghost" onclick="tapCustom()">Tap element by selector</button>
   </div>
 
   <div class="section">
@@ -101,6 +109,7 @@ function go(u) {
 
 function back() { get('/back'); }
 function fwd()  { get('/forward'); }
+function refresh() { get('/refresh'); }
 
 function typeText() {
   const t = document.getElementById('typebox').value;
@@ -112,6 +121,15 @@ function typeText() {
 function key(k) {
   const js = '(function(){var el=document.activeElement||document.body;el.dispatchEvent(new KeyboardEvent("keydown",{key:"'+k+'",bubbles:true}));return "sent";})()';
   postRaw('/js', js);
+}
+
+function tapVideo() {
+  postJson('/tap-element', { selector: 'iframe[src*=wistia], iframe[src*=youtube], iframe[src*=vimeo], iframe[src*=player], video' });
+}
+function tapCustom() {
+  const s = document.getElementById('selector').value.trim();
+  if (!s) return;
+  postJson('/tap-element', { selector: s });
 }
 
 document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') nav(); });

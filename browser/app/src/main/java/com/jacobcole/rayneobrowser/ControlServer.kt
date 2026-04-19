@@ -32,8 +32,52 @@ class ControlServer(
             "/forward" -> handleForward()
             "/title" -> handleTitle()
             "/ping" -> json(mapOf("ok" to true, "version" to "0.1.0"))
+            "/refresh" -> handleRefresh()
+            "/tap-element" -> handleTapElement(session)
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
+    }
+
+    private fun handleRefresh(): Response {
+        activity.runOnUiThread { webView.reload() }
+        return json(mapOf("ok" to true))
+    }
+
+    private fun handleTapElement(session: IHTTPSession): Response {
+        val body = readBody(session) ?: return json(mapOf("error" to "missing body"), Response.Status.BAD_REQUEST)
+        val selector = JSONObject(body).optString("selector")
+        if (selector.isBlank()) return json(mapOf("error" to "missing selector"), Response.Status.BAD_REQUEST)
+        val js = "(function(){var el=document.querySelector(" + JSONObject.quote(selector) + ");" +
+            "if(!el) return JSON.stringify({ok:false,error:'not-found'});" +
+            "el.scrollIntoView({block:'center',inline:'center',behavior:'auto'});" +
+            "var r=el.getBoundingClientRect();" +
+            // If still off-screen horizontally, manually scroll to its offsetLeft
+            "if(r.left<0||r.right>window.innerWidth){window.scrollTo(el.offsetLeft-window.innerWidth/2+r.width/2, el.offsetTop-window.innerHeight/2+r.height/2);r=el.getBoundingClientRect();}" +
+            "var dpr=window.devicePixelRatio||1;" +
+            "return JSON.stringify({ok:true,x:Math.max(10,(r.left+r.width/2)*dpr),y:Math.max(10,(r.top+r.height/2)*dpr)});})()"
+        val result = arrayOf<String?>(null)
+        val latch = CountDownLatch(1)
+        activity.runOnUiThread { webView.evaluateJavascript(js) { r -> result[0] = r; latch.countDown() } }
+        latch.await(3, TimeUnit.SECONDS)
+        val raw = result[0] ?: return json(mapOf("error" to "js timeout"), Response.Status.INTERNAL_ERROR)
+        val unescaped = try { JSONObject("{\"v\":$raw}").getString("v") } catch (e: Exception) { raw }
+        val inner = try { JSONObject(unescaped) } catch (e: Exception) {
+            return json(mapOf("error" to "parse", "raw" to raw), Response.Status.INTERNAL_ERROR)
+        }
+        if (!inner.optBoolean("ok")) return json(mapOf("ok" to false, "error" to inner.optString("error")))
+        val px = inner.optDouble("x").toFloat()
+        val py = inner.optDouble("y").toFloat()
+        // Give the scroll a moment to settle, then dispatch a touch.
+        activity.runOnUiThread {
+            webView.postDelayed({
+                val t = android.os.SystemClock.uptimeMillis()
+                val down = android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, px, py, 0)
+                val up = android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, px, py, 0)
+                webView.dispatchTouchEvent(down); webView.dispatchTouchEvent(up)
+                down.recycle(); up.recycle()
+            }, 250)
+        }
+        return json(mapOf("ok" to true, "x" to px.toDouble(), "y" to py.toDouble()))
     }
 
     private fun serveControlHtml(): Response {
