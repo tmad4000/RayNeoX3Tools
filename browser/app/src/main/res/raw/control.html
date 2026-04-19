@@ -38,10 +38,6 @@
   <div class="section">
     <div class="muted">Video</div>
     <button onclick="tapVideo()">▶ Play / Pause (first video on page)</button>
-    <div class="row">
-      <button class="ghost" onclick="stereo(0)">Stereo OFF (for video)</button>
-      <button class="ghost" onclick="stereo(1)">Stereo ON</button>
-    </div>
     <input id="selector" type="text" placeholder="CSS selector (optional)">
     <button class="ghost" onclick="tapCustom()">Tap element by selector</button>
   </div>
@@ -136,7 +132,6 @@ function tapCustom() {
   postJson('/tap-element', { selector: s });
 }
 
-function stereo(on) { get('/stereo?on=' + on); }
 
 document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') nav(); });
 </script>

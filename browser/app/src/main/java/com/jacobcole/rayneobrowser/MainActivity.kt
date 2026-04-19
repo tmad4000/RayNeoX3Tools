@@ -50,21 +50,12 @@ class MainActivity : AppCompatActivity() {
 
     fun setStereoEnabled(enabled: Boolean) {
         binding.stereo.stereoEnabled = enabled
-        binding.webview.setLayerType(
-            if (enabled) View.LAYER_TYPE_SOFTWARE else View.LAYER_TYPE_HARDWARE,
-            null
-        )
-        binding.webview.invalidate()
     }
 
     fun isStereoEnabled(): Boolean = binding.stereo.stereoEnabled
 
     private fun configureWebView() {
         val wv = binding.webview
-        // Software layer so view.draw() captures rendered content — required for
-        // StereoLayout to duplicate WebView into the right-eye half. Hardware video
-        // (YouTube) renders black under software mode; toggle via setStereoEnabled.
-        wv.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         wv.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
