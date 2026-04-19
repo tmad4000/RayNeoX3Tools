@@ -1,65 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.jacobcole.rayneobrowser.StereoLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/stereo"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@android:color/black">
 
     <LinearLayout
-        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:background="#111"
-        android:padding="4dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@android:color/black">
 
-        <Button
-            android:id="@+id/btnBack"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="←"
-            android:contentDescription="@string/back"
-            android:minWidth="48dp"
-            android:nextFocusRight="@+id/btnForward" />
+            android:orientation="horizontal"
+            android:background="#111"
+            android:padding="4dp">
 
-        <Button
-            android:id="@+id/btnForward"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="→"
-            android:minWidth="48dp"
-            android:nextFocusRight="@+id/urlBar" />
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="←"
+                android:contentDescription="@string/back"
+                android:minWidth="40dp"
+                android:nextFocusRight="@+id/btnForward" />
 
-        <EditText
-            android:id="@+id/urlBar"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            <Button
+                android:id="@+id/btnForward"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="→"
+                android:minWidth="40dp"
+                android:nextFocusRight="@+id/urlBar" />
+
+            <EditText
+                android:id="@+id/urlBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/url_hint"
+                android:inputType="textUri"
+                android:imeOptions="actionGo"
+                android:singleLine="true"
+                android:textColor="@android:color/white"
+                android:textColorHint="#888"
+                android:textSize="12sp"
+                android:background="#222"
+                android:padding="6dp"
+                android:nextFocusRight="@+id/btnGo"
+                android:importantForAutofill="no" />
+
+            <Button
+                android:id="@+id/btnGo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/go"
+                android:minWidth="40dp"
+                android:nextFocusRight="@+id/webview" />
+        </LinearLayout>
+
+        <WebView
+            android:id="@+id/webview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:hint="@string/url_hint"
-            android:inputType="textUri"
-            android:imeOptions="actionGo"
-            android:singleLine="true"
-            android:textColor="@android:color/white"
-            android:textColorHint="#888"
-            android:background="#222"
-            android:padding="8dp"
-            android:nextFocusRight="@+id/btnGo"
-            android:importantForAutofill="no" />
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
 
-        <Button
-            android:id="@+id/btnGo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/go"
-            android:nextFocusRight="@+id/webview" />
     </LinearLayout>
 
-    <WebView
-        android:id="@+id/webview"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
-
-</LinearLayout>
+</com.jacobcole.rayneobrowser.StereoLayout>

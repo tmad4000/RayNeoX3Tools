@@ -50,10 +50,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureWebView() {
         val wv = binding.webview
+        // Software layer so view.draw() captures rendered content — required for
+        // StereoLayout to duplicate WebView into the right-eye half.
+        wv.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         wv.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
             loadWithOverviewMode = true
             useWideViewPort = true
             mediaPlaybackRequiresUserGesture = false
