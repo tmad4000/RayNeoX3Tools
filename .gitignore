@@ -13,3 +13,4 @@ captures/
 app/release/
 **/build/
 gradle-user-home/
+.kotlin/
