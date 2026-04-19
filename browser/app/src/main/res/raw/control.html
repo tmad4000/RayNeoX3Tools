@@ -39,6 +39,11 @@
     <div class="muted">Video</div>
     <button onclick="tapVideo()">▶ Play / Pause (first video on page)</button>
     <div class="row">
+      <button class="ghost" onclick="nativeKey('SPACE')">Space</button>
+      <button class="ghost" onclick="nativeKey('ENTER')">Enter</button>
+      <button class="ghost" onclick="fullscreen()">⛶ Max</button>
+    </div>
+    <div class="row">
       <button class="ghost" onclick="vol('down')">🔉 Vol −</button>
       <button class="ghost" onclick="vol('up')">🔊 Vol +</button>
       <button class="ghost" onclick="vol('mute')">Mute</button>
@@ -133,6 +138,8 @@ function tapVideo() {
   postJson('/tap-element', { selector: 'iframe[src*=wistia], iframe[src*=youtube], iframe[src*=vimeo], iframe[src*=player], video' });
 }
 function vol(action) { get('/volume?action=' + action); }
+function nativeKey(name) { get('/key?name=' + name); }
+function fullscreen() { get('/fullscreen'); }
 
 function tapCustom() {
   const s = document.getElementById('selector').value.trim();

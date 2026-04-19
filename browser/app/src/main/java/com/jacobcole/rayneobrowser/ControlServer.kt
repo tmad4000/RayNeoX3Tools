@@ -36,6 +36,8 @@ class ControlServer(
             "/tap-element" -> handleTapElement(session)
             "/stereo" -> handleStereo(session)
             "/volume" -> handleVolume(session)
+            "/key" -> handleKey(session)
+            "/fullscreen" -> handleFullscreen()
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
     }
@@ -51,6 +53,44 @@ class ControlServer(
             latch.await(1, TimeUnit.SECONDS)
         }
         return json(mapOf("stereo" to main.isStereoEnabled()))
+    }
+
+    private fun handleKey(session: IHTTPSession): Response {
+        val name = session.parameters["name"]?.firstOrNull()
+            ?: return json(mapOf("error" to "missing name"), Response.Status.BAD_REQUEST)
+        val code = when (name.uppercase()) {
+            "SPACE" -> android.view.KeyEvent.KEYCODE_SPACE
+            "ENTER" -> android.view.KeyEvent.KEYCODE_ENTER
+            "TAB" -> android.view.KeyEvent.KEYCODE_TAB
+            "ESCAPE", "ESC" -> android.view.KeyEvent.KEYCODE_ESCAPE
+            "BACK" -> android.view.KeyEvent.KEYCODE_BACK
+            "LEFT" -> android.view.KeyEvent.KEYCODE_DPAD_LEFT
+            "RIGHT" -> android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+            "UP" -> android.view.KeyEvent.KEYCODE_DPAD_UP
+            "DOWN" -> android.view.KeyEvent.KEYCODE_DPAD_DOWN
+            "F" -> android.view.KeyEvent.KEYCODE_F
+            "K" -> android.view.KeyEvent.KEYCODE_K
+            "M" -> android.view.KeyEvent.KEYCODE_M
+            else -> return json(mapOf("error" to "unknown key", "name" to name), Response.Status.BAD_REQUEST)
+        }
+        activity.runOnUiThread {
+            val t = android.os.SystemClock.uptimeMillis()
+            val down = android.view.KeyEvent(t, t, android.view.KeyEvent.ACTION_DOWN, code, 0)
+            val up = android.view.KeyEvent(t, t + 50, android.view.KeyEvent.ACTION_UP, code, 0)
+            webView.dispatchKeyEvent(down)
+            webView.dispatchKeyEvent(up)
+        }
+        return json(mapOf("ok" to true, "key" to name.uppercase(), "code" to code))
+    }
+
+    private fun handleFullscreen(): Response {
+        val js = "(function(){" +
+            "var v=document.querySelector('video'); if(v && v.requestFullscreen){v.requestFullscreen(); return 'video-fs';}" +
+            "var ifr=document.querySelector('iframe[src*=wistia], iframe[src*=youtube], iframe[src*=vimeo], iframe[src*=player]');" +
+            "if(ifr && ifr.requestFullscreen){ifr.requestFullscreen(); return 'iframe-fs';}" +
+            "return 'no-video';})()"
+        activity.runOnUiThread { webView.evaluateJavascript(js, null) }
+        return json(mapOf("ok" to true))
     }
 
     private fun handleVolume(session: IHTTPSession): Response {

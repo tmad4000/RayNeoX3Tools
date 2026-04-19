@@ -7,6 +7,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebChromeClient
+import android.webkit.WebChromeClient.CustomViewCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -74,7 +75,28 @@ class MainActivity : AppCompatActivity() {
                 binding.urlBar.setText(url ?: "")
             }
         }
-        wv.webChromeClient = WebChromeClient()
+        wv.webChromeClient = object : WebChromeClient() {
+            private var fsView: View? = null
+            private var fsCallback: CustomViewCallback? = null
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (fsView != null) { callback.onCustomViewHidden(); return }
+                fsView = view
+                fsCallback = callback
+                (window.decorView as? android.view.ViewGroup)?.addView(
+                    view,
+                    android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            override fun onHideCustomView() {
+                fsView?.let { (window.decorView as? android.view.ViewGroup)?.removeView(it) }
+                fsView = null
+                fsCallback?.onCustomViewHidden()
+                fsCallback = null
+            }
+        }
     }
 
     private fun wireToolbar() {
