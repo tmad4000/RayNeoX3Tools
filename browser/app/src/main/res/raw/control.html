@@ -38,6 +38,12 @@
   <div class="section">
     <div class="muted">Video</div>
     <button onclick="tapVideo()">▶ Play / Pause (first video on page)</button>
+    <div class="row">
+      <button class="ghost" onclick="vol('down')">🔉 Vol −</button>
+      <button class="ghost" onclick="vol('up')">🔊 Vol +</button>
+      <button class="ghost" onclick="vol('mute')">Mute</button>
+    </div>
+    <button class="ghost" onclick="refresh()">⏹ Stop all media (reload page)</button>
     <input id="selector" type="text" placeholder="CSS selector (optional)">
     <button class="ghost" onclick="tapCustom()">Tap element by selector</button>
   </div>
@@ -126,6 +132,8 @@ function key(k) {
 function tapVideo() {
   postJson('/tap-element', { selector: 'iframe[src*=wistia], iframe[src*=youtube], iframe[src*=vimeo], iframe[src*=player], video' });
 }
+function vol(action) { get('/volume?action=' + action); }
+
 function tapCustom() {
   const s = document.getElementById('selector').value.trim();
   if (!s) return;

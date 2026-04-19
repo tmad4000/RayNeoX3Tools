@@ -35,6 +35,7 @@ class ControlServer(
             "/refresh" -> handleRefresh()
             "/tap-element" -> handleTapElement(session)
             "/stereo" -> handleStereo(session)
+            "/volume" -> handleVolume(session)
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
     }
@@ -50,6 +51,29 @@ class ControlServer(
             latch.await(1, TimeUnit.SECONDS)
         }
         return json(mapOf("stereo" to main.isStereoEnabled()))
+    }
+
+    private fun handleVolume(session: IHTTPSession): Response {
+        val action = session.parameters["action"]?.firstOrNull() ?: "get"
+        val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val stream = android.media.AudioManager.STREAM_MUSIC
+        val latch = CountDownLatch(1)
+        activity.runOnUiThread {
+            when (action) {
+                "up" -> am.adjustStreamVolume(stream, android.media.AudioManager.ADJUST_RAISE, android.media.AudioManager.FLAG_SHOW_UI)
+                "down" -> am.adjustStreamVolume(stream, android.media.AudioManager.ADJUST_LOWER, android.media.AudioManager.FLAG_SHOW_UI)
+                "mute" -> am.adjustStreamVolume(stream, android.media.AudioManager.ADJUST_MUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                "unmute" -> am.adjustStreamVolume(stream, android.media.AudioManager.ADJUST_UNMUTE, android.media.AudioManager.FLAG_SHOW_UI)
+                "max" -> am.setStreamVolume(stream, am.getStreamMaxVolume(stream), android.media.AudioManager.FLAG_SHOW_UI)
+            }
+            latch.countDown()
+        }
+        latch.await(1, TimeUnit.SECONDS)
+        return json(mapOf(
+            "volume" to am.getStreamVolume(stream),
+            "max" to am.getStreamMaxVolume(stream),
+            "muted" to am.isStreamMute(stream)
+        ))
     }
 
     private fun handleRefresh(): Response {
