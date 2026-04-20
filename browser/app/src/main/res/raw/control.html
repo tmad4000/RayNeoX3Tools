@@ -93,6 +93,13 @@
     <button class="ghost" onclick="go('https://www.corebalancetraining.com')">Core Balance Training</button>
   </div>
 
+  <div class="section">
+    <div class="muted">History
+      <button class="ghost" onclick="loadHistory()" style="display:inline;width:auto;padding:4px 10px;margin-left:8px;font-size:11px;">↻ Refresh</button>
+    </div>
+    <div id="history"></div>
+  </div>
+
   <details>
     <summary>Advanced</summary>
     <input id="selector" type="text" placeholder="CSS selector, e.g. button.play">
@@ -149,6 +156,34 @@ function zoom(delta, abs) {
   if (abs !== undefined) get('/zoom?level=' + abs);
   else get('/zoom?delta=' + delta);
 }
+async function loadHistory() {
+  try {
+    const r = await fetch(base + '/history');
+    const arr = await r.json();
+    const box = document.getElementById('history');
+    if (!arr.length) { box.innerHTML = '<div class="muted">(empty — visit some pages)</div>'; return; }
+    box.innerHTML = arr.map(e => {
+      const label = (e.title && e.title.trim()) || e.url;
+      const urlJson = JSON.stringify(e.url).replace(/"/g, '&quot;');
+      return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:stretch;">' +
+        '<div style="flex:1;min-width:0;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:8px 10px;overflow:hidden;">' +
+          '<div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(label) + '</div>' +
+          '<div class="muted" style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">' + escapeHtml(e.url) + '</div>' +
+        '</div>' +
+        '<button class="ghost" style="flex:0 0 auto;width:auto;padding:0 10px;margin:0;font-size:12px;" onclick="copyText(' + urlJson + ')">Copy</button>' +
+        '<button class="ghost" style="flex:0 0 auto;width:auto;padding:0 10px;margin:0;font-size:12px;" onclick="go(' + urlJson + ')">Open</button>' +
+      '</div>';
+    }).join('');
+  } catch (e) { setStatus('history failed: ' + e); }
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); setStatus('copied: ' + text.slice(0, 60)); }
+  catch (e) { setStatus('copy failed: ' + e); }
+}
+
 async function copyUrl() {
   try {
     const r = await fetch(base + '/title');
@@ -186,6 +221,7 @@ function tapCustom() {
 }
 
 document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') nav(); });
+loadHistory();
 </script>
 </body>
 </html>

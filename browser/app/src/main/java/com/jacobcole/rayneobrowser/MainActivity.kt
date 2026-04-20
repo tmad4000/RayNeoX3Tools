@@ -55,6 +55,20 @@ class MainActivity : AppCompatActivity() {
 
     fun isStereoEnabled(): Boolean = binding.stereo.stereoEnabled
 
+    data class HistoryEntry(val url: String, val title: String, val timestamp: Long)
+    private val history = java.util.concurrent.ConcurrentLinkedDeque<HistoryEntry>()
+    private val historyCap = 50
+
+    fun pushHistory(url: String, title: String) {
+        if (url.isBlank() || url.startsWith("data:") || url.startsWith("about:")) return
+        // Dedup: skip if same URL as most recent entry
+        if (history.peekFirst()?.url == url) return
+        history.addFirst(HistoryEntry(url, title, System.currentTimeMillis()))
+        while (history.size > historyCap) history.pollLast()
+    }
+
+    fun getHistorySnapshot(): List<HistoryEntry> = history.toList()
+
     private var viewportMaxed = false
 
     fun toggleViewportMax(): Boolean {
@@ -92,6 +106,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 binding.urlBar.setText(url ?: "")
+                pushHistory(url ?: "", view?.title ?: "")
                 // Auto-unmute: YouTube (and most autoplay-policy-respecting sites)
                 // start <video> with muted=true. Persistently clear that for the
                 // first ~10s after load so audio works without manual unmute.

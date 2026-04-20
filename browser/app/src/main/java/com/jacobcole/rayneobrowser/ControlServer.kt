@@ -42,6 +42,7 @@ class ControlServer(
             "/seek" -> handleSeek(session)
             "/scroll" -> handleScroll(session)
             "/zoom" -> handleZoom(session)
+            "/history" -> handleHistory()
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
     }
@@ -128,6 +129,20 @@ class ControlServer(
         }
         latch.await(1, TimeUnit.SECONDS)
         return json(mapOf("ok" to true, "viewportMaxed" to maxed[0]))
+    }
+
+    private fun handleHistory(): Response {
+        val main = activity as? MainActivity
+            ?: return json(mapOf("error" to "no activity"), Response.Status.INTERNAL_ERROR)
+        val arr = org.json.JSONArray()
+        main.getHistorySnapshot().forEach { e ->
+            val obj = JSONObject()
+            obj.put("url", e.url)
+            obj.put("title", e.title)
+            obj.put("ts", e.timestamp)
+            arr.put(obj)
+        }
+        return newFixedLengthResponse(Response.Status.OK, "application/json", arr.toString())
     }
 
     private fun handleScroll(session: IHTTPSession): Response {
