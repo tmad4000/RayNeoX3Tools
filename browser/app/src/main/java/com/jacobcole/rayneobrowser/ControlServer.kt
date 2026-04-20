@@ -88,22 +88,41 @@ class ControlServer(
     }
 
     private fun handleFullscreen(): Response {
-        // Toggle viewport-max mode: hide toolbar + system bars so the WebView
-        // fills the whole Activity. This is the only reliable way to get
-        // "fullscreen" video across all players (YouTube mobile especially
-        // blocks programmatic HTML5 requestFullscreen without user activation).
-        // Also fire HTML5 requestFullscreen as a bonus — it helps on sites
-        // that accept it.
+        // Three layers, all applied together and toggleable:
+        // 1. viewport-max: hide our toolbar + system bars so WebView fills Activity.
+        // 2. CSS override: force the active <video>/iframe to position:fixed + 100vw/vh,
+        //    z-index above everything. Works where requestFullscreen doesn't (YouTube
+        //    mobile, sites that eat gesture requirements).
+        // 3. Fire the page-level requestFullscreen() as a bonus for sites that honor it.
         val main = activity as? MainActivity
         val maxed = arrayOf(false)
         val latch = CountDownLatch(1)
         activity.runOnUiThread {
             maxed[0] = main?.toggleViewportMax() ?: false
-            // Also try the page-level API in case the site honors it
-            val js = buildPlayerDispatchJs(
-                html5 = "try{if(v.requestFullscreen) v.requestFullscreen(); else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();}catch(e){} return 'html5-fs';",
-                wistia = "window._wq=window._wq||[]; window._wq.push({id:id, onReady:function(v){try{v.requestFullscreen();}catch(e){}}}); return 'wistia-fs:'+id;"
-            )
+            val forcedCss = maxed[0]
+            val js = """(function(){
+                var ID = '__rayneo_fs_style__';
+                var existing = document.getElementById(ID);
+                if (existing) existing.remove();
+                if ($forcedCss) {
+                    var el = document.querySelector('video')
+                          || document.querySelector('iframe[src*=wistia], iframe[src*=youtube], iframe[src*=vimeo], iframe[src*=player]');
+                    if (el) {
+                        var style = document.createElement('style');
+                        style.id = ID;
+                        // Use the element's unique characteristics if possible; for video tag, tag-based works.
+                        var sel = el.tagName.toLowerCase();
+                        if (el.id) sel += '#' + el.id;
+                        style.textContent = sel + '{position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;max-width:100vw!important;max-height:100vh!important;z-index:2147483647!important;background:black!important;object-fit:contain!important;}';
+                        document.head.appendChild(style);
+                        try { if (el.requestFullscreen) el.requestFullscreen(); else if (el.webkitEnterFullscreen) el.webkitEnterFullscreen(); } catch(e) {}
+                        return 'forced:' + sel;
+                    }
+                    return 'no-media';
+                }
+                try { if (document.exitFullscreen) document.exitFullscreen(); } catch(e) {}
+                return 'restored';
+            })()"""
             webView.evaluateJavascript(js, null)
             latch.countDown()
         }
@@ -163,15 +182,46 @@ class ControlServer(
     }
 
     private fun handlePlay(): Response {
+        // First try JS-based play/pause, which works when the player is loaded
+        // (HTML5 video in active state or Wistia with API hooked).
         val js = buildPlayerDispatchJs(
-            html5 = "if(v.paused) v.play(); else v.pause(); return 'html5:'+(v.paused?'paused':'playing');",
+            html5 = "var r = v.play(); if (r && r.catch) r.catch(function(){}); return 'html5:played';",
             wistia = "window._wq=window._wq||[]; window._wq.push({id:id, onReady:function(v){v.state()==='playing'?v.pause():v.play();}}); return 'wistia:'+id;"
         )
         val result = arrayOf<String?>(null)
         val latch = CountDownLatch(1)
         activity.runOnUiThread { webView.evaluateJavascript(js) { r -> result[0] = r; latch.countDown() } }
         latch.await(3, TimeUnit.SECONDS)
-        return json(mapOf("result" to (result[0] ?: "null")))
+        val r = result[0] ?: "null"
+
+        // If no player was found via JS (e.g. YouTube not yet initialized) OR
+        // the call may not have had user activation, fall back to a native tap
+        // on the video element's screen position. YouTube mobile requires a
+        // real touch event to start playback.
+        if (r.contains("no-player") || r.contains("null")) {
+            val posJs = "(function(){var el=document.querySelector('video'); if(!el) return null; var rect=el.getBoundingClientRect(); var dpr=window.devicePixelRatio||1; return JSON.stringify({x:(rect.left+rect.width/2)*dpr, y:(rect.top+rect.height/2)*dpr});})()"
+            val raw = arrayOf<String?>(null)
+            val l2 = CountDownLatch(1)
+            activity.runOnUiThread { webView.evaluateJavascript(posJs) { pr -> raw[0] = pr; l2.countDown() } }
+            l2.await(2, TimeUnit.SECONDS)
+            val coords = try {
+                val inner = JSONObject("{\"v\":${raw[0]}}").getString("v")
+                if (inner == "null") null else JSONObject(inner)
+            } catch (e: Exception) { null }
+            if (coords != null) {
+                val px = coords.optDouble("x").toFloat()
+                val py = coords.optDouble("y").toFloat()
+                activity.runOnUiThread {
+                    val t = android.os.SystemClock.uptimeMillis()
+                    val down = android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, px, py, 0)
+                    val up = android.view.MotionEvent.obtain(t, t + 50, android.view.MotionEvent.ACTION_UP, px, py, 0)
+                    webView.dispatchTouchEvent(down); webView.dispatchTouchEvent(up)
+                    down.recycle(); up.recycle()
+                }
+                return json(mapOf("result" to "tap-fallback"))
+            }
+        }
+        return json(mapOf("result" to r))
     }
 
     /**
@@ -183,7 +233,10 @@ class ControlServer(
      */
     private fun buildPlayerDispatchJs(html5: String, wistia: String): String {
         return """(function(){
-            var videos = [].slice.call(document.querySelectorAll('video')).filter(function(v){return v.duration>0 || v.readyState>0;});
+            // Any <video> element, even if 0x0 / not yet loaded. YouTube mobile
+            // lazy-loads the video source; the element is in the DOM from the start
+            // but duration/readyState stay 0 until playback actually starts.
+            var videos = [].slice.call(document.querySelectorAll('video'));
             if (videos.length) {
                 var v = videos.find(function(v){return !v.paused;}) || videos[0];
                 $html5
