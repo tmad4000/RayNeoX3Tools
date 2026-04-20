@@ -11,6 +11,14 @@
         android:usesCleartextTraffic="true"
         android:supportsRtl="true">
 
+        <!-- Registers this as a native Mercury (RayNeo XR) app. Without this
+             meta-data, com.ffalconxr.mercury.launcher force-stops third-party
+             apps every 15-30 seconds as a watchdog. Reference: RayDesk
+             (https://github.com/Quad-Labs/RayDesk). -->
+        <meta-data
+            android:name="com.rayneo.mercury.app"
+            android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

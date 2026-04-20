@@ -85,12 +85,27 @@ class ControlServer(
     }
 
     private fun handleFullscreen(): Response {
-        val js = buildPlayerDispatchJs(
-            html5 = "if(v.requestFullscreen) v.requestFullscreen(); else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen(); return 'html5-fs';",
-            wistia = "window._wq=window._wq||[]; window._wq.push({id:id, onReady:function(v){v.requestFullscreen();}}); return 'wistia-fs:'+id;"
-        )
-        activity.runOnUiThread { webView.evaluateJavascript(js, null) }
-        return json(mapOf("ok" to true))
+        // Toggle viewport-max mode: hide toolbar + system bars so the WebView
+        // fills the whole Activity. This is the only reliable way to get
+        // "fullscreen" video across all players (YouTube mobile especially
+        // blocks programmatic HTML5 requestFullscreen without user activation).
+        // Also fire HTML5 requestFullscreen as a bonus — it helps on sites
+        // that accept it.
+        val main = activity as? MainActivity
+        val maxed = arrayOf(false)
+        val latch = CountDownLatch(1)
+        activity.runOnUiThread {
+            maxed[0] = main?.toggleViewportMax() ?: false
+            // Also try the page-level API in case the site honors it
+            val js = buildPlayerDispatchJs(
+                html5 = "try{if(v.requestFullscreen) v.requestFullscreen(); else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();}catch(e){} return 'html5-fs';",
+                wistia = "window._wq=window._wq||[]; window._wq.push({id:id, onReady:function(v){try{v.requestFullscreen();}catch(e){}}}); return 'wistia-fs:'+id;"
+            )
+            webView.evaluateJavascript(js, null)
+            latch.countDown()
+        }
+        latch.await(1, TimeUnit.SECONDS)
+        return json(mapOf("ok" to true, "viewportMaxed" to maxed[0]))
     }
 
     private fun handlePlay(): Response {

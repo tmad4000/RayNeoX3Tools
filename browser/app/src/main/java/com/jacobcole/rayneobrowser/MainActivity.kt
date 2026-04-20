@@ -55,6 +55,25 @@ class MainActivity : AppCompatActivity() {
 
     fun isStereoEnabled(): Boolean = binding.stereo.stereoEnabled
 
+    private var viewportMaxed = false
+
+    fun toggleViewportMax(): Boolean {
+        viewportMaxed = !viewportMaxed
+        binding.toolbar.visibility = if (viewportMaxed) View.GONE else View.VISIBLE
+        val insets = window.decorView.windowInsetsController
+        if (insets != null) {
+            if (viewportMaxed) {
+                insets.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+                insets.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                insets.show(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
+            }
+        }
+        return viewportMaxed
+    }
+
+    fun isViewportMaxed(): Boolean = viewportMaxed
+
     private fun configureWebView() {
         val wv = binding.webview
         wv.settings.apply {
