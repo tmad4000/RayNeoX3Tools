@@ -40,6 +40,8 @@ class ControlServer(
             "/fullscreen" -> handleFullscreen()
             "/play" -> handlePlay()
             "/seek" -> handleSeek(session)
+            "/scroll" -> handleScroll(session)
+            "/zoom" -> handleZoom(session)
             else -> newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "not found: ${session.uri}")
         }
     }
@@ -107,6 +109,39 @@ class ControlServer(
         }
         latch.await(1, TimeUnit.SECONDS)
         return json(mapOf("ok" to true, "viewportMaxed" to maxed[0]))
+    }
+
+    private fun handleScroll(session: IHTTPSession): Response {
+        val dir = session.parameters["dir"]?.firstOrNull() ?: "down"
+        val amount = session.parameters["amount"]?.firstOrNull()?.toIntOrNull() ?: 400
+        val js = when (dir) {
+            "up" -> "window.scrollBy(0, -$amount)"
+            "down" -> "window.scrollBy(0, $amount)"
+            "top" -> "window.scrollTo(0, 0)"
+            "bottom" -> "window.scrollTo(0, document.body.scrollHeight)"
+            else -> "window.scrollBy(0, $amount)"
+        }
+        activity.runOnUiThread { webView.evaluateJavascript(js, null) }
+        return json(mapOf("ok" to true, "dir" to dir, "amount" to amount))
+    }
+
+    private fun handleZoom(session: IHTTPSession): Response {
+        val level = session.parameters["level"]?.firstOrNull()?.toIntOrNull()
+        val delta = session.parameters["delta"]?.firstOrNull()?.toIntOrNull()
+        val latch = CountDownLatch(1)
+        val current = arrayOf(100)
+        activity.runOnUiThread {
+            val target = when {
+                level != null -> level.coerceIn(50, 300)
+                delta != null -> (webView.settings.textZoom + delta).coerceIn(50, 300)
+                else -> 100
+            }
+            webView.settings.textZoom = target
+            current[0] = target
+            latch.countDown()
+        }
+        latch.await(1, TimeUnit.SECONDS)
+        return json(mapOf("zoom" to current[0]))
     }
 
     private fun handleSeek(session: IHTTPSession): Response {

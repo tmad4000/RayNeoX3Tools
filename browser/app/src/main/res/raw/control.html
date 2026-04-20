@@ -30,7 +30,10 @@
   <h1>RayNeo Remote</h1>
 
   <input id="url" type="url" placeholder="URL or search" autocapitalize="off" autocorrect="off">
-  <button onclick="nav()">Open</button>
+  <div class="row">
+    <button onclick="nav()" style="flex:3;">Open</button>
+    <button class="ghost" onclick="copyUrl()" style="flex:1;">Copy</button>
+  </div>
 
   <div class="row">
     <button class="ghost" onclick="back()">← Back</button>
@@ -56,6 +59,19 @@
       <button class="ghost" onclick="vol('down')">🔉 Vol −</button>
       <button class="ghost" onclick="vol('up')">🔊 Vol +</button>
       <button class="ghost" onclick="vol('mute')">Mute</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="muted">Page</div>
+    <div class="row">
+      <button class="ghost" onclick="scroll('up')">↑ Scroll up</button>
+      <button class="ghost" onclick="scroll('down')">↓ Scroll down</button>
+    </div>
+    <div class="row">
+      <button class="ghost" onclick="zoom(-10)">A−</button>
+      <button class="ghost" onclick="zoom(0, 100)">100%</button>
+      <button class="ghost" onclick="zoom(10)">A+</button>
     </div>
   </div>
 
@@ -128,6 +144,21 @@ function fullscreen() { get('/fullscreen'); }
 function vol(action)  { get('/volume?action=' + action); }
 function nativeKey(n) { get('/key?name=' + n); }
 function seek(delta)  { get('/seek?delta=' + delta); }
+function scroll(dir)   { get('/scroll?dir=' + dir); }
+function zoom(delta, abs) {
+  if (abs !== undefined) get('/zoom?level=' + abs);
+  else get('/zoom?delta=' + delta);
+}
+async function copyUrl() {
+  try {
+    const r = await fetch(base + '/title');
+    const j = await r.json();
+    if (!j.url) return setStatus('no url');
+    await navigator.clipboard.writeText(j.url);
+    setStatus('copied: ' + j.url.slice(0, 60));
+  } catch (e) { setStatus('copy failed: ' + e); }
+}
+
 function seekTo() {
   const raw = document.getElementById('seekto').value.trim();
   if (!raw) return;
