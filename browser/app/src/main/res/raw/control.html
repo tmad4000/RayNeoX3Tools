@@ -11,20 +11,23 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#000; color:#eee; padding:16px; }
   h1 { margin:0 0 8px; font-size:18px; color:#9cf; }
-  .muted { color:#777; font-size:12px; margin-bottom:16px; }
+  .muted { color:#777; font-size:12px; margin-bottom:8px; }
   input, textarea { width:100%; padding:14px; font-size:16px; background:#1a1a1a; color:#eee; border:1px solid #333; border-radius:8px; margin-bottom:8px; }
   button { width:100%; padding:16px; font-size:16px; background:#27c; color:white; border:none; border-radius:8px; margin-bottom:8px; font-weight:600; }
-  button.ghost { background:#222; color:#9cf; }
+  button.ghost { background:#222; color:#9cf; font-weight:500; }
   .row { display:flex; gap:8px; }
   .row button { flex:1; }
   .section { margin-top:16px; padding-top:16px; border-top:1px solid #222; }
-  #status { padding:8px; font-size:12px; color:#6c6; min-height:1.2em; }
-  .preset { margin-bottom:6px; }
+  details { margin-top:16px; padding-top:12px; border-top:1px solid #222; }
+  details summary { color:#888; font-size:12px; cursor:pointer; padding:6px 0; list-style:none; }
+  details summary::-webkit-details-marker { display:none; }
+  details[open] summary::before { content:'▾ '; }
+  details:not([open]) summary::before { content:'▸ '; }
+  #status { padding:8px 0 0; font-size:11px; color:#6c6; min-height:1.2em; word-break:break-all; }
 </style>
 </head>
 <body>
   <h1>RayNeo Remote</h1>
-  <div class="muted">Connected to glasses control server</div>
 
   <input id="url" type="url" placeholder="URL or search" autocapitalize="off" autocorrect="off">
   <button onclick="nav()">Open</button>
@@ -37,37 +40,37 @@
 
   <div class="section">
     <div class="muted">Video</div>
-    <button onclick="tapVideo()">▶ Play / Pause (first video on page)</button>
-    <div class="row">
-      <button class="ghost" onclick="nativeKey('SPACE')">Space</button>
-      <button class="ghost" onclick="nativeKey('ENTER')">Enter</button>
-      <button class="ghost" onclick="fullscreen()">⛶ Max</button>
-    </div>
+    <button onclick="play()">▶ Play / Pause</button>
+    <button class="ghost" onclick="fullscreen()">⛶ Maximize</button>
     <div class="row">
       <button class="ghost" onclick="vol('down')">🔉 Vol −</button>
       <button class="ghost" onclick="vol('up')">🔊 Vol +</button>
       <button class="ghost" onclick="vol('mute')">Mute</button>
     </div>
-    <button class="ghost" onclick="refresh()">⏹ Stop all media (reload page)</button>
-    <input id="selector" type="text" placeholder="CSS selector (optional)">
-    <button class="ghost" onclick="tapCustom()">Tap element by selector</button>
   </div>
 
   <div class="section">
-    <input id="typebox" type="text" placeholder="Text to set on focused field">
-    <button onclick="typeText()">Set text on focused input</button>
+    <div class="muted">Text input</div>
+    <input id="typebox" type="text" placeholder="Text to type into focused field">
+    <button onclick="typeText()">Type</button>
     <div class="row">
-      <button class="ghost" onclick="key('Tab')">Tab</button>
-      <button class="ghost" onclick="key('Enter')">Enter</button>
+      <button class="ghost" onclick="nativeKey('TAB')">Tab</button>
+      <button class="ghost" onclick="nativeKey('ENTER')">Enter</button>
     </div>
   </div>
 
   <div class="section">
     <div class="muted">Presets</div>
-    <button class="preset ghost" onclick="go('https://google.com')">Google</button>
-    <button class="preset ghost" onclick="go('https://youtube.com')">YouTube</button>
-    <button class="preset ghost" onclick="go('https://www.corebalancetraining.com')">Core Balance Training</button>
+    <button class="ghost" onclick="go('https://google.com')">Google</button>
+    <button class="ghost" onclick="go('https://youtube.com')">YouTube</button>
+    <button class="ghost" onclick="go('https://www.corebalancetraining.com')">Core Balance Training</button>
   </div>
+
+  <details>
+    <summary>Advanced</summary>
+    <input id="selector" type="text" placeholder="CSS selector, e.g. button.play">
+    <button class="ghost" onclick="tapCustom()">Tap element by selector</button>
+  </details>
 
   <div id="status"></div>
 
@@ -82,25 +85,17 @@ async function postJson(path, body) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    setStatus(path + ' -> ' + r.status);
+    setStatus(path + ' → ' + r.status);
     return r;
-  } catch (e) { setStatus('error: ' + e); }
-}
-
-async function postRaw(path, body) {
-  try {
-    const r = await fetch(base + path, { method: 'POST', body });
-    const t = await r.text();
-    setStatus(path + ' -> ' + t);
-    return t;
   } catch (e) { setStatus('error: ' + e); }
 }
 
 async function get(path) {
   try {
     const r = await fetch(base + path);
-    setStatus(path + ' -> ' + r.status);
-    return r;
+    const t = await r.text();
+    setStatus(path + ' → ' + t.slice(0, 80));
+    return t;
   } catch (e) { setStatus('error: ' + e); }
 }
 
@@ -112,43 +107,28 @@ function nav() {
   }
   go(u);
 }
+function go(u) { document.getElementById('url').value = u; postJson('/url', { url: u }); }
 
-function go(u) {
-  document.getElementById('url').value = u;
-  postJson('/url', { url: u });
-}
-
-function back() { get('/back'); }
-function fwd()  { get('/forward'); }
-function refresh() { get('/refresh'); }
+function back()       { get('/back'); }
+function fwd()        { get('/forward'); }
+function refresh()    { get('/refresh'); }
+function play()       { get('/play'); }
+function fullscreen() { get('/fullscreen'); }
+function vol(action)  { get('/volume?action=' + action); }
+function nativeKey(n) { get('/key?name=' + n); }
 
 function typeText() {
   const t = document.getElementById('typebox').value;
   if (!t) return;
   const js = '(function(){var el=document.activeElement;if(el&&"value" in el){el.value='+JSON.stringify(t)+';el.dispatchEvent(new Event("input",{bubbles:true}));return "typed";}return "no-focused-input";})()';
-  postRaw('/js', js);
+  fetch(base + '/js', { method: 'POST', body: js }).then(r => r.text()).then(t => setStatus('type: ' + t));
 }
-
-function key(k) {
-  const js = '(function(){var el=document.activeElement||document.body;el.dispatchEvent(new KeyboardEvent("keydown",{key:"'+k+'",bubbles:true}));return "sent";})()';
-  postRaw('/js', js);
-}
-
-function tapVideo() {
-  // Player-aware: picks the active <video> or in-view Wistia iframe and uses
-  // its native play/pause API (not a synthetic tap).
-  get('/play');
-}
-function vol(action) { get('/volume?action=' + action); }
-function nativeKey(name) { get('/key?name=' + name); }
-function fullscreen() { get('/fullscreen'); }
 
 function tapCustom() {
   const s = document.getElementById('selector').value.trim();
   if (!s) return;
   postJson('/tap-element', { selector: s });
 }
-
 
 document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') nav(); });
 </script>
